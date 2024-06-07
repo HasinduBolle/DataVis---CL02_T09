@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pie Charts by Year</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #030343;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        h1 {
+            text-align: center;
+            padding: 20px 0;
+            background-color: rgb(80, 144, 184);
+            color: white;
+            margin: 0;
+            font-size: 28px;
+        }
+
+        .center-image {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        .center-image img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        #description {
+            text-align: center;
+            margin: 20px;
+            font-size: 18px;
+            line-height: 1.6;
+        }
+
+        #buttons {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        #buttons button {
+            background-color: rgb(80, 144, 184);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            margin: 0 10px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.6s;
+            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+        }
+
+        #buttons button:hover {
+            background-color: black;
+        }
+
+        #buttons button.selected {
+            background-color: black;
+        }
+
+        #chart-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex: 1;
+            margin-bottom: 40px;
+            margin-top: 40px;
+        }
+
+        #piechart {
+            display: block;
+        }
+
+        #legend {
+            margin-left: 20px;
+            font-size: 18px;
+            color: white;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            margin-right: 8px;
+        }
+
+        .tooltip {
+            position: absolute;
+            text-align: center;
+            width: auto;
+            padding: 8px;
+            font: 14px sans-serif;
+            background: rgba(0, 0, 0, 0.7);
+            border: 0px;
+            border-radius: 8px;
+            pointer-events: none;
+            opacity: 0;
+            color: white;
+            transition: opacity 0.5s;
+        }
+
+        .back-button {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .back-button button {
+            background-color: rgb(80, 144, 184);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.6s;
+            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+            margin-bottom: 20px;
+        }
+
+        .back-button button:hover {
+            background-color: black;
+        }
+
+        footer {
+            text-align: center;
+            padding: 10px 0;
+            background-color: rgb(80, 144, 184);
+            color: white;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>OECD Statistics for Migration of Nurses</h1>
+    <div class="center-image">
+        <img src="nurses.jpg" alt="Center Image">
+    </div>
+    <div id="description">
+        <p>Explore the migration statistics of nurses over the years. Select a year to view the data represented in a pie chart format.</p>
+        <p>By clicking on a specific section (Which represents a country) of the Pie Chart, You can access the line chart, which represesnts the data of that specific country throughout the years.</p>
+        <p>This chart provides a visual representation of the migration patterns of nurses across different countries over various years. By examining these trends, we can gain insights into how nurse migration has evolved and identify factors that might influence these movements.</p>
+        <p>Migration patterns of nurses are crucial for understanding the global healthcare workforce distribution. These patterns help in policy-making, ensuring adequate staffing levels in healthcare facilities worldwide, and addressing potential shortages in regions that might be affected by high levels of nurse emigration.</p>
+    </div>
+    <div id="buttons"></div>
+    <div id="chart-container">
+        <svg id="piechart" width="600" height="500"></svg>
+        <div id="legend"></div>
+    </div>
+    <div class="tooltip" id="tooltip"></div>
+    <div class="back-button">
+        <button onclick="location.href='index.html'">Back to Homepage</button>
+    </div>
+    <footer>Developed by Hasindu Bollegala and Medan Herath</footer>
+
+    <script>
+        const width = 600, height = 500, radius = Math.min(width, height) / 2;
+        const color = d3.scaleOrdinal(d3.schemeCategory10);
+
+        const pie = d3.pie().value(function(d) { return d.Total; });
+        const arc = d3.arc().innerRadius(0).outerRadius(radius);
+        const arcHover = d3.arc().innerRadius(0).outerRadius(radius * 1.1); 
+
+        const svg = d3.select("#piechart")
+                      .attr("width", width)
+                      .attr("height", height)
+                      .append("g")
+                      .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
+
+        const tooltip = d3.select("#tooltip");
+
+        d3.csv("Data.csv").then(function(data) {
+            const dataByYear = d3.group(data, d => d.Year);
+
+            d3.select("#buttons").selectAll("button")
+              .data(Array.from(dataByYear.keys()))
+              .enter().append("button")
+              .text(d => d)
+              .on("click", function(event, year) {
+                  d3.selectAll("#buttons button").classed("selected", false);
+                  d3.select(this).classed("selected", true);
+                  updatePieChart(dataByYear.get(year));
+              });
+
+            updatePieChart(dataByYear.get(Array.from(dataByYear.keys())[0]));
+            d3.select("#buttons button").classed("selected", true); // This selects the first button by default
+        });
+
+        function updatePieChart(data) {
+            const arcs = svg.selectAll(".arc")
+                            .data(pie(data), d => d.data.Country);
+
+            arcs.exit().remove();
+
+            const newArcs = arcs.enter().append("g").attr("class", "arc");
+
+            newArcs.append("path")
+                   .attr("d", arc)
+                   .attr("fill", function(d) { return color(d.data.Country); })
+                   .each(function(d) { this._current = d; }) 
+                   .on("mouseover", function(event, d) {
+                       tooltip.transition()
+                              .duration(200)
+                              .style("opacity", .9);
+                       tooltip.html(d.data.Country + "<br/>" + d.data.Total + "<br/>" + "Click to view Line Chart")
+                              .style("left", (event.pageX + 5) + "px")
+                              .style("top", (event.pageY - 28) + "px");
+                       d3.select(this).transition().duration(200).attr("d", arcHover); // Applying the hover effect
+                   })
+                   .on("mouseout", function(d) {
+                       tooltip.transition()
+                              .duration(500)
+                              .style("opacity", 0);
+                       d3.select(this).transition().duration(200).attr("d", arc); // Removing the hover effect
+                   })
+                   .on("click", function(event, d) {
+                        window.location.href = `lineChart.html?country=${encodeURIComponent(d.data.Country)}`;
+                    });
+
+            arcs.select("path").transition().duration(750).attrTween("d", arcTween);
+
+            arcs.select("path").attr("d", arc);
+
+            updateLegend(data);
+        }
+
+        function arcTween(a) {
+            const i = d3.interpolate(this._current, a);
+            this._current = i(0);
+            return function(t) {
+                return arc(i(t));
+            };
+        }
+
+        function updateLegend(data) {
+            const legend = d3.select("#legend");
+            legend.selectAll("*").remove();
+
+            const legendItems = legend.selectAll(".legend-item")
+                                      .data(data)
+                                      .enter().append("div")
+                                      .attr("class", "legend-item");
+
+            legendItems.append("div")
+                       .attr("class", "legend-color")
+                       .style("background-color", d => color(d.Country));
+
+            legendItems.append("div")
+                       .text(d => d.Country);
+        }
+    </script>
+</body>
+</html>
